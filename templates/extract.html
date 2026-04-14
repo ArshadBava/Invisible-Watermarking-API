@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extract Watermark | Advanced Watermarking Studio</title>
+    <link href="/static/style.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Advanced Watermarking Studio</h1>
+            <p>Recover Your Hidden Watermark</p>
+        </header>
+
+        <nav class="nav-tabs">
+            <a href="/embed" class="nav-link">Embed</a>
+            <a href="/extract" class="nav-link active">Extract</a>
+            <a href="/robustness" class="nav-link">Robustness</a>
+        </nav>
+
+        <form id="extractForm">
+            <!-- Blind Mode toggle (must be before method selector) -->
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+                    <input type="checkbox" id="blindMode" style="width:18px;height:18px;accent-color:var(--accent-color)" onchange="toggleBlindMode(this.checked)">
+                    <span><strong>Blind Mode</strong> — no original image needed (alpha must match embedding)</span>
+                </label>
+            </div>
+
+            <!-- Original Image (hidden in blind mode) -->
+            <div class="form-group" id="originalGroup">
+                <label>Original Image (Clean)</label>
+                <div class="file-drop-area">
+                    <span class="file-msg">Upload Original Image</span>
+                    <input class="file-input" type="file" name="original" accept="image/*" id="originalInput">
+                </div>
+            </div>
+
+            <!-- Blind mode: optional WM grid size hint -->
+            <div class="form-group" id="blindSizeGroup" style="display:none">
+                <label>Watermark Grid Size (optional — from embed result)</label>
+                <div style="display:flex;gap:1rem">
+                    <input type="number" name="wm_height" placeholder="Height px" min="1" max="8192" style="flex:1">
+                    <input type="number" name="wm_width" placeholder="Width px" min="1" max="8192" style="flex:1">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Watermark Method</label>
+                <select id="wmMethod" name="method">
+                    <option value="dwt">DWT (default)</option>
+                    <option value="dct">DCT</option>
+                    <option value="dft">DFT</option>
+                </select>
+            </div>
+
+            <!-- Watermarked Image -->
+            <div class="form-group">
+                <label>Watermarked Image (Suspicious)</label>
+                <div class="file-drop-area">
+                    <span class="file-msg">Upload Watermarked Image</span>
+                    <input class="file-input" type="file" name="watermarked" accept="image/*" required>
+                </div>
+            </div>
+
+            <!-- Verification Options -->
+            <div class="form-group">
+                <label>Verification Reference Type</label>
+                <select id="wmType" name="watermark_type">
+                    <option value="none">None (Extraction Only)</option>
+                    <option value="image">Image Reference</option>
+                    <option value="text">Text Reference</option>
+                </select>
+            </div>
+
+            <!-- Text Input -->
+            <div class="form-group" id="textInputGroup" style="display: none;">
+                <label>Original Text Reference</label>
+                <input type="text" name="watermark_text" placeholder="Enter original secret text" maxlength="50">
+            </div>
+
+            <!-- Image Input -->
+            <div class="form-group" id="imageInputGroup" style="display: none;">
+                <label>Original Image Reference</label>
+                <div class="file-drop-area">
+                    <span class="file-msg">Upload Original Watermark Image</span>
+                    <input class="file-input" type="file" name="watermark_input" accept="image/*">
+                </div>
+            </div>
+
+            <!-- Alpha Slider -->
+            <div class="form-group">
+                <label>Watermark Strength (Alpha: <span id="alphaVal">0.1</span>)</label>
+                <input type="range" name="alpha" min="0.01" max="0.5" step="0.01" value="0.1"
+                    oninput="document.getElementById('alphaVal').innerText = this.value">
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                <span class="loader" id="loader"></span>
+                <span id="btnText">Extract & Verify</span>
+            </button>
+        </form>
+
+        <!-- Result Section -->
+        <div class="result-card" id="resultCard">
+            <div class="metrics-container">
+                <div class="metric-box">
+                    <div class="metric-value" id="ncValue">--</div>
+                    <div class="metric-label">NC Score (0-1)</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="methodUsed">--</div>
+                    <div class="metric-label">Method</div>
+                </div>
+            </div>
+
+            <img id="resultImage" class="preview-image" alt="Extracted Result">
+
+            <a id="downloadLink" class="btn btn-primary" download="extracted.png">
+                Download Extracted
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // File Input UI Updates
+        document.querySelectorAll('.file-input').forEach(input => {
+            input.addEventListener('change', function () {
+                const fileName = this.files[0]?.name;
+                const msgBefore = this.previousElementSibling;
+                if (fileName) msgBefore.textContent = fileName;
+            });
+        });
+
+        // Toggle input types
+        const wmType   = document.getElementById('wmType');
+        const textGroup  = document.getElementById('textInputGroup');
+        const imageGroup = document.getElementById('imageInputGroup');
+        const wmMethod   = document.getElementById('wmMethod');
+
+        // Toggle blind mode: hide original image, show WM size fields
+        function toggleBlindMode(isBlind) {
+            const origGroup  = document.getElementById('originalGroup');
+            const sizeGroup  = document.getElementById('blindSizeGroup');
+            const origInput  = document.getElementById('originalInput');
+
+            if (isBlind) {
+                origGroup.style.display  = 'none';
+                sizeGroup.style.display  = 'block';
+                origInput.removeAttribute('required');
+            } else {
+                origGroup.style.display  = 'block';
+                sizeGroup.style.display  = 'none';
+                origInput.setAttribute('required', '');
+            }
+        }
+
+        // Trigger change event on load
+        wmType.dispatchEvent(new Event('change'));
+
+        wmType.addEventListener('change', (e) => {
+            if (e.target.value === 'text') {
+                textGroup.style.display = 'block';
+                imageGroup.style.display = 'none';
+            } else if (e.target.value === 'image') {
+                textGroup.style.display = 'none';
+                imageGroup.style.display = 'block';
+            } else {
+                textGroup.style.display = 'none';
+                imageGroup.style.display = 'none';
+            }
+        });
+
+        // Form Submission
+        document.getElementById('extractForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const loader = document.getElementById('loader');
+            const btnText = document.getElementById('btnText');
+            const resultCard = document.getElementById('resultCard');
+
+            // UI Loading State
+            btn.disabled = true;
+            loader.style.display = 'inline-block';
+            btnText.textContent = 'Extracting...';
+            resultCard.style.display = 'none';
+
+            try {
+                const formData = new FormData(e.target);
+
+                const method  = wmMethod.value;
+                const isBlind = document.getElementById('blindMode').checked;
+                let url = isBlind ? '/extract-blind' : '/extract';
+                if (method === 'dct') url = isBlind ? '/dct/extract-blind' : '/dct/extract';
+                if (method === 'dft') url = isBlind ? '/dft/extract-blind' : '/dft/extract';
+
+                // In blind mode, remove original image; in non-blind, remove wm size fields
+                if (isBlind) {
+                    formData.delete('original');
+                } else {
+                    formData.delete('wm_height');
+                    formData.delete('wm_width');
+                }
+
+                formData.delete('method'); // not needed by backend
+                // Cleanup optional fields based on type
+                const wmTypeValue = formData.get('watermark_type');
+                if (wmTypeValue === 'none' || !wmTypeValue) {
+                    formData.delete('watermark_type');
+                    formData.delete('watermark_input');
+                    formData.delete('watermark_text');
+                } else if (wmTypeValue === 'text') {
+                    formData.delete('watermark_input');
+                } else if (wmTypeValue === 'image') {
+                    formData.delete('watermark_text');
+                    const wmInput = formData.get('watermark_input');
+                    if (wmInput && wmInput.size === 0) {
+                        formData.delete('watermark_input');
+                        formData.delete('watermark_type'); // Revert to none if empty
+                    }
+                }
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Extraction failed');
+                }
+
+                // Get Headers
+                const nc = response.headers.get('X-NC');
+                const methodHeader = response.headers.get('X-Method') || method.toUpperCase();
+
+                // Get Image Blob
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+
+                // Update UI
+                document.getElementById('ncValue').textContent = nc ? nc : 'N/A';
+                document.getElementById('methodUsed').textContent = methodHeader;
+                document.getElementById('resultImage').src = objectUrl;
+                document.getElementById('downloadLink').href = objectUrl;
+
+                resultCard.style.display = 'block';
+
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                loader.style.display = 'none';
+                btnText.textContent = 'Extract & Verify';
+            }
+        });
+    </script>
+</body>
+
+</html>

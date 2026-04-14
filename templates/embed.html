@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Embed Watermark | Advanced Watermarking Studio</title>
+    <link href="/static/style.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Advanced Watermarking Studio</h1>
+            <p>Secure Image Protection Service</p>
+        </header>
+
+        <nav class="nav-tabs">
+            <a href="/embed" class="nav-link active">Embed</a>
+            <a href="/extract" class="nav-link">Extract</a>
+            <a href="/robustness" class="nav-link">Robustness</a>
+        </nav>
+
+        <form id="embedForm">
+            <!-- Cover Image -->
+            <div class="form-group">
+                <label>Original Image</label>
+                <div class="file-drop-area" id="drop-area-cover">
+                    <span class="file-msg">Drag & drop or click to upload PNG/JPG</span>
+                    <input class="file-input" type="file" name="image" accept="image/*" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Watermark Type</label>
+                <select id="wmType" name="watermark_type">
+                    <option value="text">Text Watermark</option>
+                    <option value="image">Image Watermark</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Watermark Method</label>
+                <select id="wmMethod" name="method">
+                    <option value="dwt">DWT (default)</option>
+                    <option value="dct">DCT</option>
+                    <option value="dft">DFT</option>
+                </select>
+            </div>
+
+            <!-- Blind Mode toggle -->
+            <div class="form-group">
+                <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
+                    <input type="checkbox" id="blindMode" style="width:18px;height:18px;accent-color:var(--accent-color)">
+                    <span><strong>Blind Mode</strong> — uses QIM; no original needed at extraction (alpha = secret key)</span>
+                </label>
+            </div>
+            <div class="form-group" id="textInputGroup">
+                <label>Watermark Text</label>
+                <input type="text" name="watermark_text" placeholder="Enter secret text (max 50 chars)" maxlength="50">
+            </div>
+
+            <!-- Image Input (Hidden by default) -->
+            <div class="form-group" id="imageInputGroup" style="display: none;">
+                <label>Watermark Image</label>
+                <div class="file-drop-area" id="drop-area-wm">
+                    <span class="file-msg">Upload Watermark Image</span>
+                    <input class="file-input" type="file" name="watermark" accept="image/*">
+                </div>
+            </div>
+
+            <!-- Alpha Slider -->
+            <div class="form-group">
+                <label>Watermark Strength (Alpha: <span id="alphaVal">0.1</span>)</label>
+                <input type="range" name="alpha" min="0.01" max="0.5" step="0.01" value="0.1"
+                    oninput="document.getElementById('alphaVal').innerText = this.value">
+            </div>
+
+            <button type="submit" class="btn btn-primary" id="submitBtn">
+                <span class="loader" id="loader"></span>
+                <span id="btnText">Embed Watermark</span>
+            </button>
+        </form>
+
+        <!-- Result Section -->
+        <div class="result-card" id="resultCard">
+            <div class="metrics-container">
+                <div class="metric-box">
+                    <div class="metric-value" id="psnrValue">--</div>
+                    <div class="metric-label">PSNR (dB)</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="alphaUsed">--</div>
+                    <div class="metric-label">Alpha Used</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-value" id="methodUsed">--</div>
+                    <div class="metric-label">Method</div>
+                </div>
+            </div>
+
+            <!-- Blind mode hint (shown only after embed-blind) -->
+            <div id="blindHint" style="display:none;margin:0.75rem 0;padding:0.75rem 1rem;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;color:#f59e0b;font-size:0.88rem;font-weight:600;"></div>
+
+            <img id="resultImage" class="preview-image" alt="Watermarked Result">
+
+            <a id="downloadLink" class="btn btn-primary" download="watermarked.png">
+                Download Image
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Toggle input types
+        const wmType = document.getElementById('wmType');
+        const textGroup = document.getElementById('textInputGroup');
+        const imageGroup = document.getElementById('imageInputGroup');
+        const wmMethod = document.getElementById('wmMethod');
+
+        wmType.addEventListener('change', (e) => {
+            if (e.target.value === 'text') {
+                textGroup.style.display = 'block';
+                imageGroup.style.display = 'none';
+            } else {
+                textGroup.style.display = 'none';
+                imageGroup.style.display = 'block';
+            }
+        });
+        
+        // Trigger change event on load to handle browser caching state
+        wmType.dispatchEvent(new Event('change'));
+
+        // File Input UI Updates
+        document.querySelectorAll('.file-input').forEach(input => {
+            input.addEventListener('change', function () {
+                const fileName = this.files[0]?.name;
+                const msgBefore = this.previousElementSibling;
+                if (fileName) msgBefore.textContent = fileName;
+            });
+        });
+
+        // Form Submission
+        document.getElementById('embedForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            const loader = document.getElementById('loader');
+            const btnText = document.getElementById('btnText');
+            const resultCard = document.getElementById('resultCard');
+
+            // UI Loading State
+            btn.disabled = true;
+            loader.style.display = 'inline-block';
+            btnText.textContent = 'Processing...';
+            resultCard.style.display = 'none';
+
+            try {
+                const formData = new FormData(e.target);
+
+                // Cleanup optional fields based on type
+                if (formData.get('watermark_type') === 'text') {
+                    formData.delete('watermark');
+                } else {
+                    formData.delete('watermark_text');
+                }
+
+                const method  = wmMethod.value;
+                const isBlind = document.getElementById('blindMode').checked;
+                let url = isBlind ? '/embed-blind' : '/embed';
+                if (method === 'dct') url = isBlind ? '/dct/embed-blind' : '/dct/embed';
+                if (method === 'dft') url = isBlind ? '/dft/embed-blind' : '/dft/embed';
+
+                formData.delete('method'); // not needed by backend
+                // Clean up empty file if user selects image but doesn't upload
+                const wmFile = formData.get('watermark');
+                if (wmFile && wmFile.size === 0) {
+                    formData.delete('watermark');
+                }
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.detail || 'Embedding failed');
+                }
+
+                // Get Headers
+                const psnr = response.headers.get('X-PSNR');
+                const alpha = response.headers.get('X-Alpha');
+                const methodHeader = response.headers.get('X-Method') || method.toUpperCase();
+
+                // Get Image Blob
+                const blob = await response.blob();
+                const objectUrl = URL.createObjectURL(blob);
+
+                document.getElementById('psnrValue').textContent   = psnr;
+                document.getElementById('alphaUsed').textContent    = alpha;
+                document.getElementById('methodUsed').textContent   = methodHeader;
+                document.getElementById('resultImage').src           = objectUrl;
+                document.getElementById('downloadLink').href         = objectUrl;
+
+                // Show WM grid size hint for blind mode
+                const wmH = response.headers.get('X-WM-Height');
+                const wmW = response.headers.get('X-WM-Width');
+                const hint = document.getElementById('blindHint');
+                if (wmH && wmW && hint) {
+                    hint.textContent = `⚠️ Blind Mode: watermark grid = ${wmH} × ${wmW} px. Use these values + same alpha at extraction.`;
+                    hint.style.display = 'block';
+                } else if (hint) {
+                    hint.style.display = 'none';
+                }
+
+                resultCard.style.display = 'block';
+
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                loader.style.display = 'none';
+                btnText.textContent = 'Embed Watermark';
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Robustness Test | Advanced Watermarking Studio</title>
+    <link href="/static/style.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&display=swap" rel="stylesheet">
+    <style>
+        .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem; }
+        .summary-box  { padding: 1.2rem; border-radius: 12px; text-align: center; border: 1px solid var(--border-color); }
+        .summary-box .val { font-size: 2rem; font-weight: 800; }
+        .summary-box .lbl { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); margin-top: 4px; }
+        .s-robust   { background: rgba(16,185,129,0.12); } .s-robust   .val { color: #10b981; }
+        .s-moderate { background: rgba(245,158,11,0.12); } .s-moderate .val { color: #f59e0b; }
+        .s-degraded { background: rgba(239,68,68,0.12);  } .s-degraded .val { color: #ef4444; }
+        .s-avg      { background: rgba(59,130,246,0.12); } .s-avg      .val { color: #3b82f6; }
+
+        .category-block { margin-bottom: 1.5rem; }
+        .category-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+                          letter-spacing: 2px; color: var(--text-secondary);
+                          padding: 0.5rem 0; border-bottom: 1px solid var(--border-color); margin-bottom: 0.5rem; }
+        .attack-row  { display: flex; align-items: center; gap: 1rem; padding: 0.55rem 0.25rem;
+                       border-bottom: 1px solid rgba(148,163,184,0.05); }
+        .attack-name { width: 200px; flex-shrink: 0; font-size: 0.9rem; color: var(--text-primary); }
+        .bar-wrap    { flex: 1; background: rgba(255,255,255,0.05); border-radius: 999px; height: 8px; overflow: hidden; }
+        .bar-fill    { height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+        .bar-robust  { background: #10b981; }
+        .bar-moderate{ background: #f59e0b; }
+        .bar-degraded{ background: #ef4444; }
+        .nc-badge    { width: 58px; flex-shrink: 0; text-align: center; font-size: 0.82rem;
+                       font-weight: 700; padding: 2px 8px; border-radius: 6px; }
+        .nc-robust   { background: rgba(16,185,129,0.15); color: #10b981; }
+        .nc-moderate { background: rgba(245,158,11,0.15); color: #f59e0b; }
+        .nc-degraded { background: rgba(239,68,68,0.15);  color: #ef4444; }
+
+        .legend       { display: flex; gap: 1.5rem; justify-content: flex-end; margin-bottom: 1rem; font-size: 0.8rem; }
+        .legend-item  { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+        .legend-dot   { width: 10px; height: 10px; border-radius: 50%; }
+
+        .results-section { margin-top: 2rem; }
+        .results-header  { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+        .results-title   { font-size: 1.2rem; font-weight: 700; color: var(--text-primary); }
+        .method-badge    { font-size: 0.8rem; font-weight: 700; padding: 4px 12px; border-radius: 99px;
+                           background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .spinner-overlay { display: flex; flex-direction: column; align-items: center; gap: 1rem; padding: 3rem; }
+        .big-spinner     { width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.1);
+                           border-top-color: var(--accent-color); border-radius: 50%; animation: rotation 0.8s linear infinite; }
+        .spinner-text    { color: var(--text-secondary); font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>Advanced Watermarking Studio</h1>
+        <p>Robustness Testing Suite</p>
+    </header>
+
+    <nav class="nav-tabs">
+        <a href="/embed" class="nav-link">Embed</a>
+        <a href="/extract" class="nav-link">Extract</a>
+        <a href="/robustness" class="nav-link active">Robustness</a>
+    </nav>
+
+    <form id="robForm">
+        <div class="form-group">
+            <label>Original Image (Clean)</label>
+            <div class="file-drop-area">
+                <span class="file-msg">Upload Original Image</span>
+                <input class="file-input" type="file" name="original" accept="image/*" required>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Watermarked Image</label>
+            <div class="file-drop-area">
+                <span class="file-msg">Upload Watermarked Image</span>
+                <input class="file-input" type="file" name="watermarked" accept="image/*" required>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Watermark Method</label>
+            <select name="method">
+                <option value="dwt">DWT (Haar 3-level)</option>
+                <option value="dct">DCT (8×8 Block)</option>
+                <option value="dft">DFT (Dual-Symmetric)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Watermark Reference Type</label>
+            <select id="wmType" name="watermark_type">
+                <option value="text">Text Reference</option>
+                <option value="image">Image Reference</option>
+            </select>
+        </div>
+
+        <div class="form-group" id="textGroup">
+            <label>Original Watermark Text</label>
+            <input type="text" name="watermark_text" placeholder="Enter original secret text" maxlength="50">
+        </div>
+
+        <div class="form-group" id="imageGroup" style="display:none">
+            <label>Original Watermark Image</label>
+            <div class="file-drop-area">
+                <span class="file-msg">Upload Original Watermark Image</span>
+                <input class="file-input" type="file" name="watermark_input" accept="image/*">
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>Alpha (must match embedding alpha: <span id="alphaVal">0.1</span>)</label>
+            <input type="range" name="alpha" min="0.01" max="0.5" step="0.01" value="0.1"
+                   oninput="document.getElementById('alphaVal').innerText = this.value">
+        </div>
+
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+            <span class="loader" id="loader"></span>
+            <span id="btnText">Run Robustness Test (28 attacks)</span>
+        </button>
+    </form>
+
+    <div id="resultsSection" style="display:none">
+        <div class="results-section">
+            <div class="results-header">
+                <span class="results-title">Test Results</span>
+                <span class="method-badge" id="methodBadge">DWT</span>
+            </div>
+
+            <!-- Summary -->
+            <div class="summary-grid">
+                <div class="summary-box s-robust">
+                    <div class="val" id="robustCount">0</div>
+                    <div class="lbl">Robust (NC ≥ 0.75)</div>
+                </div>
+                <div class="summary-box s-moderate">
+                    <div class="val" id="moderateCount">0</div>
+                    <div class="lbl">Moderate (0.50–0.75)</div>
+                </div>
+                <div class="summary-box s-degraded">
+                    <div class="val" id="degradedCount">0</div>
+                    <div class="lbl">Degraded (&lt; 0.50)</div>
+                </div>
+                <div class="summary-box s-avg">
+                    <div class="val" id="avgNC">0.00</div>
+                    <div class="lbl">Average NC Score</div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="legend">
+                <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div>Robust ≥ 0.75</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div>Moderate 0.50–0.75</div>
+                <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>Degraded &lt; 0.50</div>
+            </div>
+
+            <!-- Attack results grouped by category -->
+            <div id="attackResults"></div>
+        </div>
+    </div>
+
+    <div id="loadingSection" style="display:none">
+        <div class="spinner-overlay">
+            <div class="big-spinner"></div>
+            <div class="spinner-text">Running 28 attacks — this may take a few seconds...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Toggle watermark type input
+    const wmType = document.getElementById('wmType');
+    wmType.addEventListener('change', e => {
+        document.getElementById('textGroup').style.display  = e.target.value === 'text'  ? 'block' : 'none';
+        document.getElementById('imageGroup').style.display = e.target.value === 'image' ? 'block' : 'none';
+    });
+
+    // File name display
+    document.querySelectorAll('.file-input').forEach(inp => {
+        inp.addEventListener('change', function() {
+            const name = this.files[0]?.name;
+            if (name) this.previousElementSibling.textContent = name;
+        });
+    });
+
+    function groupBy(arr, key) {
+        return arr.reduce((acc, item) => {
+            (acc[item[key]] = acc[item[key]] || []).push(item);
+            return acc;
+        }, {});
+    }
+
+    function renderResults(data) {
+        document.getElementById('methodBadge').textContent = data.method;
+        document.getElementById('robustCount').textContent  = data.robust;
+        document.getElementById('moderateCount').textContent= data.moderate;
+        document.getElementById('degradedCount').textContent= data.degraded;
+        document.getElementById('avgNC').textContent = data.average_nc.toFixed(4);
+
+        const container = document.getElementById('attackResults');
+        container.innerHTML = '';
+        const groups = groupBy(data.results, 'category');
+
+        for (const [cat, rows] of Object.entries(groups)) {
+            const block = document.createElement('div');
+            block.className = 'category-block';
+            block.innerHTML = `<div class="category-title">${cat}</div>`;
+
+            rows.forEach(r => {
+                const pct = Math.max(0, Math.min(100, r.nc * 100));
+                block.innerHTML += `
+                  <div class="attack-row">
+                    <div class="attack-name">${r.name}</div>
+                    <div class="bar-wrap">
+                      <div class="bar-fill bar-${r.status}" style="width:${pct}%"></div>
+                    </div>
+                    <div class="nc-badge nc-${r.status}">${r.nc.toFixed(3)}</div>
+                  </div>`;
+            });
+            container.appendChild(block);
+        }
+    }
+
+    document.getElementById('robForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const btn     = document.getElementById('submitBtn');
+        const loader  = document.getElementById('loader');
+        const btnText = document.getElementById('btnText');
+
+        btn.disabled = true;
+        loader.style.display = 'inline-block';
+        btnText.textContent  = 'Running...';
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('loadingSection').style.display = 'block';
+
+        try {
+            const fd = new FormData(e.target);
+
+            // Clean up unused reference fields
+            const wt = fd.get('watermark_type');
+            if (wt === 'text') {
+                fd.delete('watermark_input');
+            } else {
+                fd.delete('watermark_text');
+                const f = fd.get('watermark_input');
+                if (f && f.size === 0) fd.delete('watermark_input');
+            }
+
+            const resp = await fetch('/robustness/test', { method: 'POST', body: fd });
+            if (!resp.ok) {
+                const err = await resp.json();
+                throw new Error(err.detail || 'Test failed');
+            }
+
+            const data = await resp.json();
+            document.getElementById('loadingSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+            renderResults(data);
+
+        } catch (err) {
+            document.getElementById('loadingSection').style.display = 'none';
+            alert('Error: ' + err.message);
+        } finally {
+            btn.disabled = false;
+            loader.style.display = 'none';
+            btnText.textContent  = 'Run Robustness Test (28 attacks)';
+        }
+    });
+</script>
+</body>
+</html>
