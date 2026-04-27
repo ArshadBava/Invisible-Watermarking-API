@@ -12,7 +12,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>Advanced Watermarking Studio</h1>
+            <h1>Advanced Watermarking System</h1>
             <p>Secure Image Protection Service</p>
         </header>
 
@@ -52,8 +52,10 @@
             <!-- Blind Mode toggle -->
             <div class="form-group">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-                    <input type="checkbox" id="blindMode" style="width:18px;height:18px;accent-color:var(--accent-color)">
-                    <span><strong>Blind Mode</strong> — uses QIM; no original needed at extraction (alpha = secret key)</span>
+                    <input type="checkbox" id="blindMode"
+                        style="width:18px;height:18px;accent-color:var(--accent-color)">
+                    <span><strong>Blind Mode</strong> — uses QIM; no original needed at extraction (alpha = secret
+                        key)</span>
                 </label>
             </div>
             <div class="form-group" id="textInputGroup">
@@ -101,7 +103,9 @@
             </div>
 
             <!-- Blind mode hint (shown only after embed-blind) -->
-            <div id="blindHint" style="display:none;margin:0.75rem 0;padding:0.75rem 1rem;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;color:#f59e0b;font-size:0.88rem;font-weight:600;"></div>
+            <div id="blindHint"
+                style="display:none;margin:0.75rem 0;padding:0.75rem 1rem;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;color:#f59e0b;font-size:0.88rem;font-weight:600;">
+            </div>
 
             <img id="resultImage" class="preview-image" alt="Watermarked Result">
 
@@ -127,7 +131,7 @@
                 imageGroup.style.display = 'block';
             }
         });
-        
+
         // Trigger change event on load to handle browser caching state
         wmType.dispatchEvent(new Event('change'));
 
@@ -164,7 +168,7 @@
                     formData.delete('watermark_text');
                 }
 
-                const method  = wmMethod.value;
+                const method = wmMethod.value;
                 const isBlind = document.getElementById('blindMode').checked;
                 let url = isBlind ? '/embed-blind' : '/embed';
                 if (method === 'dct') url = isBlind ? '/dct/embed-blind' : '/dct/embed';
@@ -196,11 +200,11 @@
                 const blob = await response.blob();
                 const objectUrl = URL.createObjectURL(blob);
 
-                document.getElementById('psnrValue').textContent   = psnr;
-                document.getElementById('alphaUsed').textContent    = alpha;
-                document.getElementById('methodUsed').textContent   = methodHeader;
-                document.getElementById('resultImage').src           = objectUrl;
-                document.getElementById('downloadLink').href         = objectUrl;
+                document.getElementById('psnrValue').textContent = psnr;
+                document.getElementById('alphaUsed').textContent = alpha;
+                document.getElementById('methodUsed').textContent = methodHeader;
+                document.getElementById('resultImage').src = objectUrl;
+                document.getElementById('downloadLink').href = objectUrl;
 
                 // Show WM grid size hint for blind mode
                 const wmH = response.headers.get('X-WM-Height');

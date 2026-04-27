@@ -12,7 +12,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>Advanced Watermarking Studio</h1>
+            <h1>Advanced Watermarking System</h1>
             <p>Recover Your Hidden Watermark</p>
         </header>
 
@@ -26,7 +26,9 @@
             <!-- Blind Mode toggle (must be before method selector) -->
             <div class="form-group">
                 <label style="display:flex;align-items:center;gap:10px;cursor:pointer">
-                    <input type="checkbox" id="blindMode" style="width:18px;height:18px;accent-color:var(--accent-color)" onchange="toggleBlindMode(this.checked)">
+                    <input type="checkbox" id="blindMode"
+                        style="width:18px;height:18px;accent-color:var(--accent-color)"
+                        onchange="toggleBlindMode(this.checked)">
                     <span><strong>Blind Mode</strong> — no original image needed (alpha must match embedding)</span>
                 </label>
             </div>
@@ -137,24 +139,24 @@
         });
 
         // Toggle input types
-        const wmType   = document.getElementById('wmType');
-        const textGroup  = document.getElementById('textInputGroup');
+        const wmType = document.getElementById('wmType');
+        const textGroup = document.getElementById('textInputGroup');
         const imageGroup = document.getElementById('imageInputGroup');
-        const wmMethod   = document.getElementById('wmMethod');
+        const wmMethod = document.getElementById('wmMethod');
 
         // Toggle blind mode: hide original image, show WM size fields
         function toggleBlindMode(isBlind) {
-            const origGroup  = document.getElementById('originalGroup');
-            const sizeGroup  = document.getElementById('blindSizeGroup');
-            const origInput  = document.getElementById('originalInput');
+            const origGroup = document.getElementById('originalGroup');
+            const sizeGroup = document.getElementById('blindSizeGroup');
+            const origInput = document.getElementById('originalInput');
 
             if (isBlind) {
-                origGroup.style.display  = 'none';
-                sizeGroup.style.display  = 'block';
+                origGroup.style.display = 'none';
+                sizeGroup.style.display = 'block';
                 origInput.removeAttribute('required');
             } else {
-                origGroup.style.display  = 'block';
-                sizeGroup.style.display  = 'none';
+                origGroup.style.display = 'block';
+                sizeGroup.style.display = 'none';
                 origInput.setAttribute('required', '');
             }
         }
@@ -192,7 +194,7 @@
             try {
                 const formData = new FormData(e.target);
 
-                const method  = wmMethod.value;
+                const method = wmMethod.value;
                 const isBlind = document.getElementById('blindMode').checked;
                 let url = isBlind ? '/extract-blind' : '/extract';
                 if (method === 'dct') url = isBlind ? '/dct/extract-blind' : '/dct/extract';
